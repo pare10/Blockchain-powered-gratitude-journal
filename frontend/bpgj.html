@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain Gratitude Journal</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        #connectWallet, #createEntry {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px 0;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #entriesContainer {
+            margin-top: 20px;
+        }
+
+        .entry {
+            background-color: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .entry-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        #entryForm {
+            display: none;
+        }
+
+        #entryContent {
+            width: 100%;
+            height: 100px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Blockchain Gratitude Journal</h1>
+        
+        <div id="walletStatus">
+            <button id="connectWallet">Connect Wallet</button>
+        </div>
+
+        <div id="entryForm">
+            <textarea id="entryContent" placeholder="Write your gratitude entry..."></textarea>
+            <label>
+                <input type="checkbox" id="isPublic"> Make this entry public
+            </label>
+            <button id="submitEntry">Submit Gratitude Entry</button>
+        </div>
+
+        <div id="entriesContainer">
+            <h2>Public Gratitude Entries</h2>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.10.0/web3.min.js"></script>
+    <script>
+        // Contract ABI and Address (replace with your deployed contract details)
+        const contractAddress = '0xAA2083aB5D479b6f0f277655f214CaE1BfC0d1ac';
+        const contractABI = [
+	{
+		"inputs": [],
+		"stateMutability": "nonpayable",
+		"type": "constructor"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "author",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "entryId",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "bool",
+				"name": "isPublic",
+				"type": "bool"
+			}
+		],
+		"name": "EntryCreated",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "liker",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "entryId",
+				"type": "uint256"
+			}
+		],
+		"name": "EntryLiked",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "unliker",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "uint256",
+				"name": "entryId",
+				"type": "uint256"
+			}
+		],
+		"name": "EntryUnliked",
+		"type": "event"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_content",
+				"type": "string"
+			},
+			{
+				"internalType": "bool",
+				"name": "_isPublic",
+				"type": "bool"
+			}
+		],
+		"name": "createEntry",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "entries",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "author",
+				"type": "address"
+			},
+			{
+				"internalType": "string",
+				"name": "content",
+				"type": "string"
+			},
+			{
+				"internalType": "uint256",
+				"name": "timestamp",
+				"type": "uint256"
+			},
+			{
+				"internalType": "bool",
+				"name": "isPublic",
+				"type": "bool"
+			},
+			{
+				"internalType": "uint256",
+				"name": "likes",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_entryId",
+				"type": "uint256"
+			}
+		],
+		"name": "getEntry",
+		"outputs": [
+			{
+				"components": [
+					{
+						"internalType": "address",
+						"name": "author",
+						"type": "address"
+					},
+					{
+						"internalType": "string",
+						"name": "content",
+						"type": "string"
+					},
+					{
+						"internalType": "uint256",
+						"name": "timestamp",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bool",
+						"name": "isPublic",
+						"type": "bool"
+					},
+					{
+						"internalType": "uint256",
+						"name": "likes",
+						"type": "uint256"
+					}
+				],
+				"internalType": "struct GratitudeJournal.GratitudeEntry",
+				"name": "",
+				"type": "tuple"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "getPublicEntries",
+		"outputs": [
+			{
+				"components": [
+					{
+						"internalType": "address",
+						"name": "author",
+						"type": "address"
+					},
+					{
+						"internalType": "string",
+						"name": "content",
+						"type": "string"
+					},
+					{
+						"internalType": "uint256",
+						"name": "timestamp",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bool",
+						"name": "isPublic",
+						"type": "bool"
+					},
+					{
+						"internalType": "uint256",
+						"name": "likes",
+						"type": "uint256"
+					}
+				],
+				"internalType": "struct GratitudeJournal.GratitudeEntry[]",
+				"name": "",
+				"type": "tuple[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "getTotalEntries",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_user",
+				"type": "address"
+			}
+		],
+		"name": "getUserEntries",
+		"outputs": [
+			{
+				"internalType": "uint256[]",
+				"name": "",
+				"type": "uint256[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_entryId",
+				"type": "uint256"
+			}
+		],
+		"name": "likeEntry",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "owner",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_entryId",
+				"type": "uint256"
+			}
+		],
+		"name": "unlikeEntry",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "withdraw",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"stateMutability": "payable",
+		"type": "receive"
+	}
+];
+
+        let web3;
+        let contract;
+        let userAccount;
+
+        // Connect Wallet Button
+        document.getElementById('connectWallet').addEventListener('click', async () => {
+            if (window.ethereum) {
+                try {
+                    // Request account access
+                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    userAccount = accounts[0];
+                    
+                    // Initialize Web3
+                    web3 = new Web3(window.ethereum);
+                    contract = new web3.eth.Contract(contractABI, contractAddress);
+
+                    // Update UI
+                    document.getElementById('connectWallet').textContent = `Connected: ${shortenAddress(userAccount)}`;
+                    document.getElementById('entryForm').style.display = 'block';
+
+                    // Load public entries
+                    loadPublicEntries();
+                } catch (error) {
+                    console.error('Failed to connect wallet', error);
+                    alert('Failed to connect wallet');
+                }
+            } else {
+                alert('Please install MetaMask!');
+            }
+        });
+
+        // Submit Entry Button
+        document.getElementById('submitEntry').addEventListener('click', async () => {
+            const content = document.getElementById('entryContent').value;
+            const isPublic = document.getElementById('isPublic').checked;
+
+            if (!content) {
+                alert('Please enter a gratitude entry');
+                return;
+            }
+
+            try {
+                await contract.methods.createEntry(content, isPublic).send({ from: userAccount });
+                
+                // Clear form and reload entries
+                document.getElementById('entryContent').value = '';
+                document.getElementById('isPublic').checked = false;
+                loadPublicEntries();
+            } catch (error) {
+                console.error('Error creating entry', error);
+                alert('Failed to create entry');
+            }
+        });
+
+        // Load Public Entries
+        async function loadPublicEntries() {
+            const entriesContainer = document.getElementById('entriesContainer');
+            entriesContainer.innerHTML = '<h2>Public Gratitude Entries</h2>';
+
+            try {
+                const publicEntries = await contract.methods.getPublicEntries().call();
+                
+                publicEntries.forEach((entry, index) => {
+                    const entryDiv = document.createElement('div');
+                    entryDiv.classList.add('entry');
+                    entryDiv.innerHTML = `
+                        <p>${entry.content}</p>
+                        <div class="entry-actions">
+                            <small>By: ${shortenAddress(entry.author)} | ${new Date(entry.timestamp * 1000).toLocaleString()}</small>
+                            <button onclick="likeEntry(${index})">👍 ${entry.likes} Likes</button>
+                        </div>
+                    `;
+                    entriesContainer.appendChild(entryDiv);
+                });
+            } catch (error) {
+                console.error('Error loading entries', error);
+            }
+        }
+
+        // Like Entry Function
+        async function likeEntry(entryId) {
+            if (!userAccount) {
+                alert('Please connect your wallet first');
+                return;
+            }
+
+            try {
+                await contract.methods.likeEntry(entryId).send({ from: userAccount });
+                loadPublicEntries();
+            } catch (error) {
+                console.error('Error liking entry', error);
+                alert('Failed to like entry');
+            }
+        }
+
+        // Utility function to shorten Ethereum addresses
+        function shortenAddress(address) {
+            return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+        }
+
+        // Listen for account changes
+        if (window.ethereum) {
+            window.ethereum.on('accountsChanged', (accounts) => {
+                window.location.reload();
+            });
+        }
+    </script>
+</body>
+</html>
